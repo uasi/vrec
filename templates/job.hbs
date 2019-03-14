@@ -1,0 +1,53 @@
+{{#> layout}}
+<main>
+  <header>
+    <nav><a href="../jobs">Jobs</a></nav>
+  </header>
+  <h1>Job <small>{{id}}</small></h1>
+  <pre>{{invocation.command}} {{invocation.args}}</pre>
+  <ul>
+    {{#if video_file_name}}
+    <li><a href="{{id}}/{{encode video_file_name}}">{{video_file_name}}</a></li>
+    {{/if}}
+    <li>
+      <details>
+        <summary>info</summary>
+        <ul>
+          <li><a href="{{id}}/info/invocation.json">invocation.json</a></li>
+          <li><a href="{{id}}/info/stdout.txt">stdout.txt</a></li>
+          <li><a href="{{id}}/info/stderr.txt">stderr.txt</a></li>
+          <li><a href="{{id}}/info/pid.txt">pid.txt</a></li>
+        </ul>
+      </details>
+    </li>
+  </ul>
+</main>
+{{#unless video_file_name}}
+<script>
+  function ping() {
+    return fetch('{{id}}/process', { method: 'HEAD' })
+  }
+  // Start a process checker if the process is running now.
+  console.debug('initial ping')
+  ping().then(function (response) {
+    console.debug('initial pong ' + response.status)
+    if (response.status === 200) {
+      document.querySelector('ul').insertAdjacentHTML('afterbegin', '<li>Process is running...</li>')
+      console.debug('start watcher')
+      const intervalId = setInterval(function () {
+        // Stop the process checker and reload the page if the process has stopped.
+        console.debug('watcher ping')
+        ping().then(function (response) {
+          console.debug('watcher pong')
+          if (response.status !== 200) {
+            console.debug('stop watcher')
+            clearInterval(intervalId)
+            document.location.reload()
+          }
+        })
+      }, 5000)
+    }
+  })
+</script>
+{{/unless}}
+{{/layout}}

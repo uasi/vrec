@@ -1,0 +1,15 @@
+{{#> layout}}
+<main>
+  <header>
+    <nav><a href="download">Download</a></nav>
+  </header>
+  <h1>Jobs</h1>
+  <ul>
+  {{#each this}}
+    <li>
+      <a href="jobs/{{this.0}}">{{this.0}}</a>
+      {{#if this.1}} - <a href="jobs/{{this.0}}/{{this.1}}">{{this.1}}</a>{{/if}}</li>
+  {{/each}}
+  </ul>
+</main>
+{{/layout}}

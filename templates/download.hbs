@@ -1,0 +1,39 @@
+{{#> layout}}
+<main>
+  <header>
+    <nav><a href="../jobs">Jobs</a></nav>
+  </header>
+  <h1>youtube-dl</h1>
+  <h2>args</h2>
+  <form action="/download" method="post">
+    <input type="text" name="args[]">
+    <hr>
+    <input type="hidden" name="access_key">
+    <input type="submit" value="Submit">
+  </form>
+</main>
+<script>
+  const accessKeyInput = document.querySelector('input[name="access_key"]')
+  const accessKey = document.location.hash.split('#k=')[1]
+  if (accessKey) {
+    accessKeyInput.value = accessKey
+  } else {
+    accessKeyInput.insertAdjacentHTML('afterend', '<strong>Access key is missing</strong>')
+  }
+
+  function overrideEnter(input) {
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && (e.getModifierState('Shift') || e.getModifierState('Control') || e.getModifierState('Meta'))) {
+        e.preventDefault()
+        const newInput = document.createElement('input')
+        newInput.setAttribute('type', 'text')
+        newInput.setAttribute('name', 'args[]')
+        overrideEnter(newInput)
+        input.insertAdjacentElement('afterend', newInput)
+        newInput.focus()
+      }
+    })
+  }
+  overrideEnter(document.querySelector('input[name="args[]"]'))
+</script>
+{{/layout}}
