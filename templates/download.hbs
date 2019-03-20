@@ -6,7 +6,9 @@
   <h1>youtube-dl</h1>
   <h2>args</h2>
   <form action="/download" method="post">
-    <input type="text" name="args[]">
+    <input type="text" name="args[]" value="--write-all-thumbnails">
+    <input type="text" name="args[]" value="--write-info-json">
+    <input type="text" name="args[]" autofocus>
     <hr>
     <input type="hidden" name="access_key">
     <input type="submit" value="Submit">
