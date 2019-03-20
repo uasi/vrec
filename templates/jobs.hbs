@@ -7,9 +7,15 @@
   <ul>
   {{#each this}}
     <li>
-      <a href="jobs/{{this.0}}">{{this.0}}</a>
+      <a href="jobs/{{this.0}}">
+        <code><time datetime="{{datetime_from_job_id this.0}}">{{datetime_from_job_id this.0}}</time></code>
+      </a>
       {{#if this.1}} - <a href="jobs/{{this.0}}/{{this.1}}">{{this.1}}</a>{{/if}}</li>
   {{/each}}
   </ul>
 </main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
+<script>
+  timeago().render(document.querySelectorAll('time'))
+</script>
 {{/layout}}

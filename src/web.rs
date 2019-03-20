@@ -31,6 +31,10 @@ pub fn start() -> std::io::Result<()> {
 
         let mut handlebars = Handlebars::new();
         handlebars.register_helper("encode", Box::new(percent_encode_helper));
+        handlebars.register_helper(
+            "datetime_from_job_id",
+            Box::new(datetime_from_job_id_helper),
+        );
         handlebars
             .register_templates_directory(".hbs", "./templates")
             .expect("Handlebars must initialize");
@@ -241,6 +245,12 @@ where
         Err(err) => Err(error::ErrorInternalServerError(err)),
     }
 }
+
+handlebars_helper!(datetime_from_job_id_helper: |s: str|
+    ulid::Ulid::from_string(s)
+        .map(|ulid| ulid.datetime().to_rfc3339())
+        .unwrap_or_default()
+);
 
 handlebars_helper!(percent_encode_helper: |s: str|
     utf8_percent_encode(s, DEFAULT_ENCODE_SET).to_string()
