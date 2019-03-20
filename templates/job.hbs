@@ -6,9 +6,9 @@
   <h1>Job <small>{{id}}</small></h1>
   <pre>{{invocation.command}} {{invocation.args}}</pre>
   <ul>
-    {{#if video_file_name}}
-    <li><a href="{{id}}/{{encode video_file_name}}">{{video_file_name}}</a></li>
-    {{/if}}
+    {{#each file_names}}
+    <li><a href="{{../id}}/{{encode this}}">{{this}}</a></li>
+    {{/each}}
     <li>
       <details>
         <summary>info</summary>

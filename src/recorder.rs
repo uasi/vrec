@@ -41,7 +41,7 @@ impl Recorder {
 
     pub fn prune_job_dirs(&self) -> io::Result<()> {
         for job in self.jobs() {
-            if !job.is_running() && job.video_file_name().is_none() {
+            if !job.is_running() && job.file_names().is_empty() {
                 println!("removing dir {:?}", &job.job_dir.path);
                 fs::remove_dir_all(&job.job_dir.path)?;
             }
@@ -94,8 +94,8 @@ impl Job {
         serde_json::from_reader(BufReader::new(f)).ok()
     }
 
-    pub fn video_file_name(&self) -> Option<String> {
-        self.job_dir.video_file_name()
+    pub fn file_names(&self) -> Vec<String> {
+        self.job_dir.file_names()
     }
 
     pub fn is_running(&self) -> bool {
@@ -206,17 +206,27 @@ impl JobDir {
         self.path.as_path()
     }
 
-    /// Returns the first non-hidden file.
-    fn video_file_name(&self) -> Option<String> {
-        let iter = self.path.read_dir().ok()?;
-        iter.flatten()
-            .map(|entry| entry.path())
-            .filter(|path| path.is_file())
-            .filter_map(|path| {
-                path.file_name()
-                    .and_then(|n| n.to_str().map(|s| s.to_owned()))
-            })
-            .find(|file_name| !file_name.starts_with('.'))
+    /// Returns non-hidden file names.
+    fn file_names(&self) -> Vec<String> {
+        if let Ok(iter) = self.path.read_dir() {
+            iter.flatten()
+                .map(|entry| entry.path())
+                .filter(|path| path.is_file())
+                .filter_map(|path| {
+                    path.file_name()
+                        .and_then(|os_str| os_str.to_str())
+                        .and_then(|name| {
+                            if !name.starts_with('.') {
+                                Some(name.to_owned())
+                            } else {
+                                None
+                            }
+                        })
+                })
+                .collect()
+        } else {
+            vec![]
+        }
     }
 }
 

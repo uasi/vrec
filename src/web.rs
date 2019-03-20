@@ -7,6 +7,7 @@ use actix_web::{
 };
 use handlebars::{handlebars_helper, Handlebars};
 use listenfd::ListenFd;
+use mime_guess::guess_mime_type;
 use serde_json::json;
 use url::percent_encoding::{percent_decode, utf8_percent_encode, DEFAULT_ENCODE_SET};
 
@@ -140,12 +141,12 @@ fn get_job(req: &HttpRequest<AppState>) -> AppResult<impl Responder> {
 
     let invocation = job.invocation().unwrap_or_else(|| json!({}));
 
-    let video_file_name = job.video_file_name().unwrap_or_default();
+    let file_names = job.file_names();
 
     let mut h = HashMap::new();
     h.insert("id", json!(format!("{}", job_id)));
     h.insert("invocation", invocation);
-    h.insert("video_file_name", json!(video_file_name));
+    h.insert("file_names", json!(file_names));
 
     render_html(&s.handlebars, "job", &h)
 }
@@ -189,13 +190,25 @@ fn get_job_file(req: &HttpRequest<AppState>) -> AppResult<impl Responder> {
 }
 
 fn get_jobs(req: &HttpRequest<AppState>) -> AppResult<impl Responder> {
+    fn first_media_file_name(mut file_names: Vec<String>) -> Option<String> {
+        file_names.sort();
+        file_names.into_iter().find(|file_name| {
+            let mime = guess_mime_type(&file_name);
+            [mime::AUDIO, mime::VIDEO].contains(&mime.type_())
+        })
+    }
+
     let s = &req.state();
 
     let mut jobs: Vec<(String, Option<String>)> = s
         .recorder
         .jobs()
         .into_iter()
-        .map(|job| (job.id().to_string(), job.video_file_name()))
+        .map(|job| {
+            let id = job.id().to_string();
+            let media_file_name = first_media_file_name(job.file_names());
+            (id, media_file_name)
+        })
         .collect();
 
     jobs.sort();
