@@ -130,6 +130,20 @@ fn post_download(
 }
 
 fn get_job(req: &HttpRequest<AppState>) -> AppResult<impl Responder> {
+    fn sort_file_names(file_names: &mut Vec<String>) {
+        fn key(file_name: &str) -> (u8, &str) {
+            let order = match guess_mime_type(file_name).type_() {
+                mime::VIDEO => 0,
+                mime::AUDIO => 1,
+                mime::IMAGE => 2,
+                _ => 3,
+            };
+            (order, file_name)
+        }
+
+        file_names.sort_by(|a, b| key(&a).cmp(&key(&b)));
+    }
+
     let s = &req.state();
 
     let job_id: JobId = From::<String>::from(req.match_info().query("id")?);
@@ -141,7 +155,8 @@ fn get_job(req: &HttpRequest<AppState>) -> AppResult<impl Responder> {
 
     let invocation = job.invocation().unwrap_or_else(|| json!({}));
 
-    let file_names = job.file_names();
+    let mut file_names = job.file_names();
+    sort_file_names(&mut file_names);
 
     let mut h = HashMap::new();
     h.insert("id", json!(format!("{}", job_id)));
