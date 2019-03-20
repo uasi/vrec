@@ -101,10 +101,7 @@ impl Job {
     pub fn is_running(&self) -> bool {
         match self.pid() {
             Ok(pid) => unsafe { libc::kill(pid, 0) == 0 },
-            err => {
-                dbg!(err).ok();
-                false
-            }
+            _ => false,
         }
     }
 
