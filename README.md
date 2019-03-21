@@ -12,10 +12,10 @@ cat > .env <<END
 ACCESS_KEY=RaNDOmStrINg
 
 # Optional (default: 3000)
-PORT=3456
+PORT=3000
 
 # Optional (default: ./var)
-WORK_DIR=/path/to/work_dir
+VAR_DIR=/path/to/var_dir
 END
 
 cargo build --release

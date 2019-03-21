@@ -49,10 +49,10 @@ pub fn start() -> std::io::Result<()> {
             .register_templates_directory(".hbs", "./templates")
             .expect("Handlebars must initialize");
 
-        let work_dir_path = dotenv::var("WORK_DIR").unwrap_or_else(|_| "var".to_owned());
-        let work_dir_path = PathBuf::from(work_dir_path);
+        let var_dir_path = dotenv::var("VAR_DIR").unwrap_or_else(|_| "var".to_owned());
+        let recorder_dir_path = PathBuf::from(var_dir_path).join("jobs");
 
-        let recorder = Recorder::new(work_dir_path);
+        let recorder = Recorder::new(recorder_dir_path);
 
         let app_state = AppState {
             access_key,
