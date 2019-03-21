@@ -3,11 +3,12 @@ use std::path::PathBuf;
 
 use actix_web::fs::NamedFile;
 use actix_web::{
-    error, http, server, App, Form, HttpRequest, HttpResponse, Responder, Result as AppResult,
+    error, http, server, App, Form, HttpRequest, HttpResponse, Json, Responder, Result as AppResult,
 };
 use handlebars::{handlebars_helper, Handlebars};
 use listenfd::ListenFd;
 use mime_guess::guess_mime_type;
+use serde::Deserialize;
 use serde_json::json;
 use url::percent_encoding::{percent_decode, utf8_percent_encode, DEFAULT_ENCODE_SET};
 
@@ -17,6 +18,15 @@ struct AppState {
     access_key: String,
     recorder: Recorder,
     handlebars: Handlebars,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PostApiRecordPayload {
+    access_key: String,
+    email_subject: String,
+    email_body: String,
 }
 
 pub fn start() -> std::io::Result<()> {
@@ -53,6 +63,7 @@ pub fn start() -> std::io::Result<()> {
         App::with_state(app_state)
             // Doc: https://actix.rs/docs/url-dispatch/
             .resource("/", |r| r.get().f(get_index))
+            .resource("/api/record", |r| r.post().with(post_api_record))
             .resource("/download", |r| {
                 r.get().f(get_download);
                 r.post().with(post_download);
@@ -79,6 +90,45 @@ pub fn start() -> std::io::Result<()> {
     server.run();
 
     Ok(())
+}
+
+fn post_api_record(
+    (req, payload): (HttpRequest<AppState>, Json<PostApiRecordPayload>),
+) -> AppResult<impl Responder> {
+    fn find_youtube_link(link: linkify::Link) -> Option<String> {
+        url::Url::parse(link.as_str())
+            .into_iter()
+            .find(|url| url.domain() == Some("www.youtube.com") && url.path() == "/watch")
+            .map(|url| url.into_string())
+    }
+
+    fn extract_youtube_link(text: &str) -> Option<String> {
+        let mut finder = linkify::LinkFinder::new();
+        finder.kinds(&[linkify::LinkKind::Url]);
+        finder.links(text).filter_map(find_youtube_link).next()
+    }
+
+    let s = req.state();
+
+    println!("post_api_record {:?}", &payload);
+
+    if payload.access_key != s.access_key {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
+    if let Some(link) = extract_youtube_link(&payload.email_body) {
+        println!("post_api_record link = {:?}", &link);
+        s.recorder
+            .spawn_job(
+                "youtube-dl",
+                &["--write-all-thumbnails", "--write-info-json", link.as_str()],
+            )
+            .and_then(|_| Ok(Ok(HttpResponse::Created().finish())))
+            .unwrap_or_else(|_| Ok(HttpResponse::Ok().finish()))
+    } else {
+        println!("post_api_record link not found");
+        Ok(HttpResponse::Ok().finish())
+    }
 }
 
 fn get_index(req: &HttpRequest<AppState>) -> AppResult<impl Responder> {
