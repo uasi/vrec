@@ -12,6 +12,7 @@ use serde::Deserialize;
 use serde_json::json;
 use url::percent_encoding::{percent_decode, utf8_percent_encode, DEFAULT_ENCODE_SET};
 
+use crate::disk_stat::{humanize_byte_size, DiskStat};
 use crate::recorder::{start_child_reaper, JobId, Recorder};
 
 struct AppState {
@@ -283,7 +284,19 @@ fn get_jobs(req: &HttpRequest<AppState>) -> AppResult<impl Responder> {
     jobs.sort();
     jobs.reverse();
 
-    render_html(&s.handlebars, "jobs", &jobs)
+    let mut h = HashMap::new();
+    h.insert("jobs", json!(jobs));
+    if let Some(stat) = DiskStat::new(req.state().recorder.work_dir_path()) {
+        h.insert("disk_available", json!(humanize_byte_size(stat.available)));
+        h.insert("disk_total", json!(humanize_byte_size(stat.total)));
+        h.insert("disk_used", json!(humanize_byte_size(stat.used)));
+    } else {
+        h.insert("disk_available", json!("N/A"));
+        h.insert("disk_total", json!("N/A"));
+        h.insert("disk_used", json!("N/A"));
+    }
+
+    render_html(&s.handlebars, "jobs", &h)
 }
 
 fn render_html<T>(handlebars: &Handlebars, template: &str, data: &T) -> AppResult<HttpResponse>

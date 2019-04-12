@@ -4,8 +4,9 @@
     <nav><a href="download">Download</a></nav>
   </header>
   <h1>Jobs</h1>
+  <p title="{{disk_used}} / {{disk_total}} used">({{disk_available}} available)</p>
   <ul>
-  {{#each this}}
+  {{#each jobs}}
     <li>
       <a href="jobs/{{this.0}}">
         <code><time datetime="{{datetime_from_job_id this.0}}">{{datetime_from_job_id this.0}}</time></code>

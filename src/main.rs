@@ -1,4 +1,5 @@
 mod cli;
+mod disk_stat;
 mod recorder;
 mod web;
 

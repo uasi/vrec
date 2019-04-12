@@ -48,6 +48,10 @@ impl Recorder {
         }
         Ok(())
     }
+
+    pub fn work_dir_path(&self) -> &Path {
+        self.work_dir.path()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -155,14 +159,14 @@ impl WorkDir {
     }
 
     fn job_dirs(&self) -> Box<dyn Iterator<Item = (JobId, JobDir)>> {
-        let dir_to_job_dir = |path: PathBuf| -> Option<(JobId, JobDir)> {
+        fn dir_to_job_dir(path: PathBuf) -> Option<(JobId, JobDir)> {
             let file_name = path.file_name().and_then(|n| n.to_str());
             if let Some(file_name) = file_name {
                 Some((JobId(file_name.to_owned()), JobDir::new(path)))
             } else {
                 None
             }
-        };
+        }
 
         if let Ok(iter) = self.path.read_dir() {
             let iter = iter
@@ -174,6 +178,10 @@ impl WorkDir {
         } else {
             Box::new(std::iter::empty())
         }
+    }
+
+    fn path(&self) -> &Path {
+        self.path.as_path()
     }
 }
 
