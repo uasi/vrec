@@ -11,7 +11,7 @@
       <a href="jobs/{{this.0}}">
         <code><time datetime="{{datetime_from_job_id this.0}}">{{datetime_from_job_id this.0}}</time></code>
       </a>
-      {{#if this.1}} - <a href="jobs/{{this.0}}/{{this.1}}">{{this.1}}</a>{{/if}}</li>
+      {{#if this.1}} - <a href="jobs/{{this.0}}/{{encode this.1}}">{{this.1}}</a>{{/if}}</li>
   {{/each}}
   </ul>
 </main>
