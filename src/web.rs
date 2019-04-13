@@ -21,13 +21,19 @@ struct AppState {
     handlebars: Handlebars,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PostApiRecordPayload {
     access_key: String,
     email_subject: String,
     email_body: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DeleteApiJobsPayload {
+    access_key: String,
+    job_ids: Vec<String>,
 }
 
 pub fn start() -> std::io::Result<()> {
@@ -64,6 +70,7 @@ pub fn start() -> std::io::Result<()> {
         App::with_state(app_state)
             // Doc: https://actix.rs/docs/url-dispatch/
             .resource("/", |r| r.get().f(get_index))
+            .resource("/api/jobs", |r| r.delete().with(delete_api_jobs))
             .resource("/api/record", |r| r.post().with(post_api_record))
             .resource("/download", |r| {
                 r.get().f(get_download);
@@ -91,6 +98,26 @@ pub fn start() -> std::io::Result<()> {
     server.run();
 
     Ok(())
+}
+
+fn delete_api_jobs(
+    (req, payload): (HttpRequest<AppState>, Json<DeleteApiJobsPayload>),
+) -> AppResult<impl Responder> {
+    let s = req.state();
+
+    println!("delete_api_jobs {:?}", &payload);
+
+    if payload.access_key != s.access_key {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
+    for job_id in &payload.job_ids {
+        if let Some(job) = s.recorder.job(&job_id.clone().into()) {
+            job.safe_delete();
+        }
+    }
+
+    Ok(HttpResponse::Ok().finish())
 }
 
 fn post_api_record(

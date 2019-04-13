@@ -7,16 +7,63 @@
   <p title="{{disk_used}} / {{disk_total}} used">({{disk_available}} available)</p>
   <ul>
   {{#each jobs}}
-    <li>
+    <li class="job-item" data-job-id="{{this.0}}">
       <a href="jobs/{{this.0}}">
         <code><time datetime="{{datetime_from_job_id this.0}}">{{datetime_from_job_id this.0}}</time></code>
       </a>
       {{#if this.1}} - <a href="jobs/{{this.0}}/{{encode this.1}}">{{this.1}}</a>{{/if}}</li>
   {{/each}}
   </ul>
+  <hr>
+  <div class="controls">
+    <button class="show-delete-ui" type="button" onclick="showDeleteUI()">Delete...</button>
+    <button class="perform-delete" type="button" onclick="performDelete()" style="display: none">Delete Selected</button>
+  </div>
 </main>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/3.0.2/timeago.min.js"></script>
 <script>
   timeago().render(document.querySelectorAll('time'))
+
+  if (!document.location.hash.split('#k=')[1]) {
+    document.querySelector('.controls').insertAdjacentHTML('afterbegin', '<strong>Access key is missing</strong>')
+  }
+</script>
+<script>
+  function showDeleteUI() {
+    Array.prototype.forEach.call(document.querySelectorAll('li.job-item'), li => {
+      const checkbox = document.createElement('input')
+      checkbox.setAttribute('type', 'checkbox')
+      checkbox.name = li.dataset.jobId
+      checkbox.classList.add('job-checkbox')
+      li.insertAdjacentElement('afterbegin', checkbox)
+    })
+    document.querySelector('.show-delete-ui').style.display = 'none'
+    document.querySelector('.perform-delete').style.display = 'unset'
+  }
+
+  function performDelete() {
+    const jobIds = Array.prototype.map.call(document.querySelectorAll('input.job-checkbox:checked'), input => input.name)
+    const body = JSON.stringify({
+      accessKey: document.location.hash.split('#k=')[1],
+      jobIds,
+    })
+    const options = {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body,
+    }
+    fetch('/api/jobs', options).then(response => {
+      if (response.ok) {
+        location.reload()
+      } else {
+        alert(`Error: ${response.statusText}`)
+      }
+    }).catch(e => {
+      alert(`Error: ${e.message}`)
+      location.reload()
+    })
+  }
 </script>
 {{/layout}}

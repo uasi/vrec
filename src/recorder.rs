@@ -143,6 +143,14 @@ impl Job {
         f.read_to_string(&mut pid).map_err(|_| "read failed")?;
         pid.trim_end().parse().map_err(|_| "parse failed")
     }
+
+    pub fn safe_delete(self) -> bool {
+        if !self.is_running() {
+            println!("removing dir {:?}", &self.job_dir.path);
+            return fs::remove_dir_all(&self.job_dir.path).is_ok()
+        }
+        false
+    }
 }
 
 struct WorkDir {
