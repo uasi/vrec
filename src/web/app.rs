@@ -30,7 +30,7 @@ struct PostApiRecordPayload {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct DeleteApiJobsPayload {
+struct DeleteJobsPayload {
     access_key: String,
     job_ids: Vec<String>,
 }
@@ -39,7 +39,6 @@ pub fn new(app_state: AppState) -> App<AppState> {
     App::with_state(app_state)
         // Doc: https://actix.rs/docs/url-dispatch/
         .resource("/", |r| r.get().f(get_index))
-        .resource("/api/jobs", |r| r.delete().with(delete_api_jobs))
         .resource("/api/record", |r| r.post().with(post_api_record))
         .resource("/download", |r| {
             r.get().f(get_download);
@@ -53,26 +52,7 @@ pub fn new(app_state: AppState) -> App<AppState> {
             r.get().f(get_job_file)
         })
         .resource("/jobs", |r| r.get().f(get_jobs))
-}
-
-fn delete_api_jobs(
-    (req, payload): (HttpRequest<AppState>, Json<DeleteApiJobsPayload>),
-) -> AppResult<impl Responder> {
-    let s = req.state();
-
-    println!("delete_api_jobs {:?}", &payload);
-
-    if payload.access_key != s.access_key {
-        return Ok(HttpResponse::Unauthorized().finish());
-    }
-
-    for job_id in &payload.job_ids {
-        if let Some(job) = s.recorder.job(&job_id.clone().into()) {
-            job.safe_delete();
-        }
-    }
-
-    Ok(HttpResponse::Ok().finish())
+        .resource("/jobs", |r| r.delete().with(delete_jobs))
 }
 
 fn post_api_record(
@@ -279,4 +259,24 @@ fn get_jobs(req: &HttpRequest<AppState>) -> AppResult<impl Responder> {
     }
 
     render_html(&s.handlebars, "jobs", &h)
+}
+
+fn delete_jobs(
+    (req, payload): (HttpRequest<AppState>, Json<DeleteJobsPayload>),
+) -> AppResult<impl Responder> {
+    let s = req.state();
+
+    println!("delete_jobs {:?}", &payload);
+
+    if payload.access_key != s.access_key {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
+    for job_id in &payload.job_ids {
+        if let Some(job) = s.recorder.job(&job_id.clone().into()) {
+            job.safe_delete();
+        }
+    }
+
+    Ok(HttpResponse::Ok().finish())
 }
