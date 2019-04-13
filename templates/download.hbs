@@ -24,7 +24,7 @@
   }
 
   function overrideEnter(input) {
-    input.addEventListener('keydown', function(e) {
+    input.addEventListener('keydown', e => {
       if (e.key === 'Enter' && (e.getModifierState('Shift') || e.getModifierState('Control') || e.getModifierState('Meta'))) {
         e.preventDefault()
         const newInput = document.createElement('input')

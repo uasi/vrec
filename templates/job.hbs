@@ -29,15 +29,15 @@
   }
   // Start a process checker if the process is running now.
   console.debug('initial ping')
-  ping().then(function (response) {
+  ping().then(response => {
     console.debug('initial pong ' + response.status)
     if (response.status === 200) {
       document.querySelector('ul').insertAdjacentHTML('afterbegin', '<li>Process is running...</li>')
       console.debug('start watcher')
-      const intervalId = setInterval(function () {
+      const intervalId = setInterval(() => {
         // Stop the process checker and reload the page if the process has stopped.
         console.debug('watcher ping')
-        ping().then(function (response) {
+        ping().then(response => {
           console.debug('watcher pong')
           if (response.status !== 200) {
             console.debug('stop watcher')
