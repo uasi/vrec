@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::fs;
 use std::io::{self, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
@@ -168,7 +169,7 @@ impl WorkDir {
 
     fn job_dirs(&self) -> Box<dyn Iterator<Item = (JobId, JobDir)>> {
         fn dir_to_job_dir(path: PathBuf) -> Option<(JobId, JobDir)> {
-            let file_name = path.file_name().and_then(|n| n.to_str());
+            let file_name = path.file_name().and_then(OsStr::to_str);
             if let Some(file_name) = file_name {
                 Some((JobId(file_name.to_owned()), JobDir::new(path)))
             } else {
@@ -227,7 +228,7 @@ impl JobDir {
                 .filter(|path| path.is_file())
                 .filter_map(|path| {
                     path.file_name()
-                        .and_then(|os_str| os_str.to_str())
+                        .and_then(OsStr::to_str)
                         .and_then(|name| {
                             if !name.starts_with('.') {
                                 Some(name.to_owned())

@@ -5,15 +5,16 @@ use actix_web::fs::NamedFile;
 use actix_web::{
     error, http, server, App, Form, HttpRequest, HttpResponse, Json, Responder, Result as AppResult,
 };
-use handlebars::{handlebars_helper, Handlebars};
+use handlebars::Handlebars;
 use listenfd::ListenFd;
 use mime_guess::guess_mime_type;
 use serde::Deserialize;
 use serde_json::json;
-use url::percent_encoding::{percent_decode, utf8_percent_encode, DEFAULT_ENCODE_SET};
+use url::{percent_encoding::percent_decode, Url};
 
 use crate::disk_stat::{humanize_byte_size, DiskStat};
 use crate::recorder::{start_child_reaper, JobId, Recorder};
+use self::helpers::*;
 
 struct AppState {
     access_key: String,
@@ -124,10 +125,10 @@ fn post_api_record(
     (req, payload): (HttpRequest<AppState>, Json<PostApiRecordPayload>),
 ) -> AppResult<impl Responder> {
     fn find_youtube_link(link: linkify::Link) -> Option<String> {
-        url::Url::parse(link.as_str())
+        Url::parse(link.as_str())
             .into_iter()
             .find(|url| url.domain() == Some("www.youtube.com") && url.path() == "/watch")
-            .map(|url| url.into_string())
+            .map(Url::into_string)
     }
 
     fn extract_youtube_link(text: &str) -> Option<String> {
@@ -336,12 +337,18 @@ where
     }
 }
 
-handlebars_helper!(datetime_from_job_id_helper: |s: str|
-    ulid::Ulid::from_string(s)
-        .map(|ulid| ulid.datetime().to_rfc3339())
-        .unwrap_or_default()
-);
+#[allow(clippy::redundant_closure)]
+mod helpers {
+    use handlebars::handlebars_helper;
+    use url::percent_encoding::{utf8_percent_encode, DEFAULT_ENCODE_SET};
 
-handlebars_helper!(percent_encode_helper: |s: str|
-    utf8_percent_encode(s, DEFAULT_ENCODE_SET).to_string()
-);
+    handlebars_helper!(datetime_from_job_id_helper: |s: str|
+        ulid::Ulid::from_string(s)
+            .map(|ulid| ulid.datetime().to_rfc3339())
+            .unwrap_or_default()
+    );
+
+    handlebars_helper!(percent_encode_helper: |s: str|
+        utf8_percent_encode(s, DEFAULT_ENCODE_SET).to_string()
+    );
+}
