@@ -148,7 +148,7 @@ impl Job {
     pub fn safe_delete(self) -> bool {
         if !self.is_running() {
             println!("removing dir {:?}", &self.job_dir.path);
-            return fs::remove_dir_all(&self.job_dir.path).is_ok()
+            return fs::remove_dir_all(&self.job_dir.path).is_ok();
         }
         false
     }
@@ -227,15 +227,13 @@ impl JobDir {
                 .map(|entry| entry.path())
                 .filter(|path| path.is_file())
                 .filter_map(|path| {
-                    path.file_name()
-                        .and_then(OsStr::to_str)
-                        .and_then(|name| {
-                            if !name.starts_with('.') {
-                                Some(name.to_owned())
-                            } else {
-                                None
-                            }
-                        })
+                    path.file_name().and_then(OsStr::to_str).and_then(|name| {
+                        if !name.starts_with('.') {
+                            Some(name.to_owned())
+                        } else {
+                            None
+                        }
+                    })
                 })
                 .collect()
         } else {
