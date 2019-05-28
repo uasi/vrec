@@ -6,10 +6,10 @@ use crate::recorder::Recorder;
 pub fn gc() -> io::Result<()> {
     dotenv::dotenv().ok();
 
-    let work_dir_path = dotenv::var("WORK_DIR").unwrap_or_else(|_| "var".to_owned());
-    let work_dir_path = PathBuf::from(work_dir_path);
+    let var_dir_path = dotenv::var("VAR_DIR").unwrap_or_else(|_| "var".to_owned());
+    let recorder_dir_path = PathBuf::from(var_dir_path).join("jobs");
 
-    let recorder = Recorder::new(work_dir_path);
+    let recorder = Recorder::new(recorder_dir_path);
 
     recorder.prune_job_dirs()
 }
