@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 
-use actix_web::fs::NamedFile;
-use actix_web::{
-    error, http, App, Form, HttpRequest, HttpResponse, Json, Responder, Result as AppResult,
-};
+use actix_files::NamedFile;
+use actix_web::{error, http, web, HttpRequest, HttpResponse, Responder, Result as ActixResult};
 use handlebars::Handlebars;
 use mime_guess::guess_mime_type;
 use serde::Deserialize;
@@ -14,7 +12,9 @@ use crate::disk_stat::{humanize_byte_size, DiskStat};
 use crate::recorder::{JobId, Recorder};
 use crate::web::helpers::render_html;
 
-pub struct AppState {
+type Data = web::Data<AppData>;
+
+pub struct AppData {
     pub access_key: String,
     pub recorder: Recorder,
     pub handlebars: Handlebars,
@@ -35,29 +35,28 @@ struct DeleteJobsPayload {
     job_ids: Vec<String>,
 }
 
-pub fn new(app_state: AppState) -> App<AppState> {
-    App::with_state(app_state)
-        // Doc: https://actix.rs/docs/url-dispatch/
-        .resource("/", |r| r.get().f(get_index))
-        .resource("/api/record", |r| r.post().with(post_api_record))
-        .resource("/download", |r| {
-            r.get().f(get_download);
-            r.post().with(post_download);
-        })
-        .resource("/jobs/{id:[0-9A-Z]+}", |r| r.get().f(get_job))
-        .resource("/jobs/{id:[0-9A-Z]+}/process", |r| {
-            r.head().f(head_job_process)
-        })
-        .resource("/jobs/{id:[0-9A-Z]+}/{file_name:.*}", |r| {
-            r.get().f(get_job_file)
-        })
-        .resource("/jobs", |r| r.get().f(get_jobs))
-        .resource("/jobs", |r| r.delete().with(delete_jobs))
+pub fn configure_app(config: &mut web::ServiceConfig) {
+    use web::{delete, get, head, post, resource as r};
+
+    config
+        .service(r("/").route(get().to(get_index)))
+        .service(r("/api/record").route(post().to(post_api_record)))
+        .service(
+            r("/download")
+                .route(get().to(get_download))
+                .route(post().to(post_download)),
+        )
+        .service(r("/jobs/{id:[0-9A-Z]+}").route(get().to(get_job)))
+        .service(r("/jobs/{id:[0-9A-Z]+}/process").route(head().to(head_job_process)))
+        .service(r("/jobs/{id:[0-9A-Z]+}/{file_name:.*}").route(get().to(get_job_file)))
+        .service(r("/jobs").route(get().to(get_jobs)))
+        .service(r("/jobs").route(delete().to(delete_jobs)));
 }
 
 fn post_api_record(
-    (req, payload): (HttpRequest<AppState>, Json<PostApiRecordPayload>),
-) -> AppResult<impl Responder> {
+    data: Data,
+    payload: web::Json<PostApiRecordPayload>,
+) -> ActixResult<impl Responder> {
     fn find_youtube_link(link: linkify::Link) -> Option<String> {
         Url::parse(link.as_str())
             .into_iter()
@@ -71,17 +70,15 @@ fn post_api_record(
         finder.links(text).filter_map(find_youtube_link).next()
     }
 
-    let s = req.state();
-
     println!("post_api_record {:?}", &payload);
 
-    if payload.access_key != s.access_key {
+    if payload.access_key != data.access_key {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
     if let Some(link) = extract_youtube_link(&payload.email_body) {
         println!("post_api_record link = {:?}", &link);
-        s.recorder
+        data.recorder
             .spawn_job(
                 "youtube-dl",
                 &["--write-all-thumbnails", "--write-info-json", link.as_str()],
@@ -94,22 +91,18 @@ fn post_api_record(
     }
 }
 
-fn get_index(req: &HttpRequest<AppState>) -> AppResult<impl Responder> {
-    render_html(&req.state().handlebars, "index", &())
+fn get_index(data: Data) -> ActixResult<impl Responder> {
+    render_html(&data.handlebars, "index", &())
 }
 
-fn get_download(req: &HttpRequest<AppState>) -> AppResult<impl Responder> {
-    render_html(&req.state().handlebars, "download", &())
+fn get_download(data: Data) -> ActixResult<impl Responder> {
+    render_html(&data.handlebars, "download", &())
 }
 
-fn post_download(
-    (req, params): (HttpRequest<AppState>, Form<Vec<(String, String)>>),
-) -> impl Responder {
-    let s = &req.state();
-
+fn post_download(data: Data, params: web::Form<Vec<(String, String)>>) -> impl Responder {
     let has_access_key = params
         .iter()
-        .any(|(name, value)| name == "access_key" && value == &s.access_key);
+        .any(|(name, value)| name == "access_key" && value == &data.access_key);
 
     if !has_access_key {
         return HttpResponse::Unauthorized()
@@ -136,7 +129,7 @@ fn post_download(
             .finish();
     }
 
-    match s.recorder.spawn_job("youtube-dl", &args) {
+    match data.recorder.spawn_job("youtube-dl", &args) {
         Ok(job) => HttpResponse::Found()
             .header(http::header::LOCATION, format!("/jobs/{}", job.id()))
             .finish(),
@@ -146,7 +139,7 @@ fn post_download(
     }
 }
 
-fn get_job(req: &HttpRequest<AppState>) -> AppResult<impl Responder> {
+fn get_job(req: HttpRequest, data: Data) -> ActixResult<impl Responder> {
     fn sort_file_names(file_names: &mut Vec<String>) {
         fn key(file_name: &str) -> (u8, &str) {
             let order = match guess_mime_type(file_name).type_() {
@@ -161,11 +154,9 @@ fn get_job(req: &HttpRequest<AppState>) -> AppResult<impl Responder> {
         file_names.sort_by(|a, b| key(&a).cmp(&key(&b)));
     }
 
-    let s = &req.state();
+    let job_id: JobId = From::<String>::from(req.match_info().query("id").to_owned());
 
-    let job_id: JobId = From::<String>::from(req.match_info().query("id")?);
-
-    let job = s
+    let job = data
         .recorder
         .job(&job_id)
         .ok_or_else(|| error::ErrorNotFound(format!("Job {} not found", &job_id)))?;
@@ -180,14 +171,12 @@ fn get_job(req: &HttpRequest<AppState>) -> AppResult<impl Responder> {
     h.insert("invocation", invocation);
     h.insert("file_names", json!(file_names));
 
-    render_html(&s.handlebars, "job", &h)
+    render_html(&data.handlebars, "job", &h)
 }
 
-fn head_job_process(req: &HttpRequest<AppState>) -> AppResult<impl Responder> {
-    let s = &req.state();
-
-    let job_id: JobId = From::<String>::from(req.match_info().query("id")?);
-    let job = s.recorder.job(&job_id);
+fn head_job_process(req: HttpRequest, data: Data) -> ActixResult<impl Responder> {
+    let job_id: JobId = From::<String>::from(req.match_info().query("id").to_owned());
+    let job = data.recorder.job(&job_id);
 
     if job.map(|j| j.is_running()).unwrap_or(false) {
         return Ok(HttpResponse::Ok().finish());
@@ -196,17 +185,15 @@ fn head_job_process(req: &HttpRequest<AppState>) -> AppResult<impl Responder> {
     Ok(HttpResponse::NoContent().finish())
 }
 
-fn get_job_file(req: &HttpRequest<AppState>) -> AppResult<impl Responder> {
-    let s = &req.state();
-
-    let job_id: JobId = From::<String>::from(req.match_info().query("id")?);
-    let job = s
+fn get_job_file(req: HttpRequest, data: Data) -> ActixResult<impl Responder> {
+    let job_id: JobId = From::<String>::from(req.match_info().query("id").to_owned());
+    let job = data
         .recorder
         .job(&job_id)
         .ok_or_else(|| error::ErrorNotFound(""))?;
 
     // Documentation says query is percent-decoded automatically, but it seems it isn't.
-    let file_name: String = req.match_info().query("file_name")?;
+    let file_name: String = req.match_info().query("file_name").to_owned();
     let file_name = percent_decode(file_name.as_bytes())
         .decode_utf8_lossy()
         .to_string();
@@ -221,7 +208,7 @@ fn get_job_file(req: &HttpRequest<AppState>) -> AppResult<impl Responder> {
     Ok(f)
 }
 
-fn get_jobs(req: &HttpRequest<AppState>) -> AppResult<impl Responder> {
+fn get_jobs(data: Data) -> ActixResult<impl Responder> {
     fn first_media_file_name(mut file_names: Vec<String>) -> Option<String> {
         file_names.sort();
         file_names.into_iter().find(|file_name| {
@@ -230,9 +217,7 @@ fn get_jobs(req: &HttpRequest<AppState>) -> AppResult<impl Responder> {
         })
     }
 
-    let s = &req.state();
-
-    let mut jobs: Vec<(String, Option<String>)> = s
+    let mut jobs: Vec<(String, Option<String>)> = data
         .recorder
         .jobs()
         .into_iter()
@@ -248,7 +233,7 @@ fn get_jobs(req: &HttpRequest<AppState>) -> AppResult<impl Responder> {
 
     let mut h = HashMap::new();
     h.insert("jobs", json!(jobs));
-    if let Some(stat) = DiskStat::new(req.state().recorder.work_dir_path()) {
+    if let Some(stat) = DiskStat::new(data.recorder.work_dir_path()) {
         h.insert("disk_available", json!(humanize_byte_size(stat.available)));
         h.insert("disk_total", json!(humanize_byte_size(stat.total)));
         h.insert("disk_used", json!(humanize_byte_size(stat.used)));
@@ -258,22 +243,18 @@ fn get_jobs(req: &HttpRequest<AppState>) -> AppResult<impl Responder> {
         h.insert("disk_used", json!("N/A"));
     }
 
-    render_html(&s.handlebars, "jobs", &h)
+    render_html(&data.handlebars, "jobs", &h)
 }
 
-fn delete_jobs(
-    (req, payload): (HttpRequest<AppState>, Json<DeleteJobsPayload>),
-) -> AppResult<impl Responder> {
-    let s = req.state();
-
+fn delete_jobs(data: Data, payload: web::Json<DeleteJobsPayload>) -> ActixResult<impl Responder> {
     println!("delete_jobs {:?}", &payload);
 
-    if payload.access_key != s.access_key {
+    if payload.access_key != data.access_key {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
     for job_id in &payload.job_ids {
-        if let Some(job) = s.recorder.job(&job_id.clone().into()) {
+        if let Some(job) = data.recorder.job(&job_id.clone().into()) {
             job.safe_delete();
         }
     }

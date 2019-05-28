@@ -1,14 +1,14 @@
 use std::path::PathBuf;
 
-use actix_web::server;
+use actix_web::{App, HttpServer};
 use handlebars::Handlebars;
 use listenfd::ListenFd;
 
 use crate::recorder::{start_child_reaper, Recorder};
-use crate::web::app::AppState;
+use crate::web::services::{configure_app, AppData};
 
-mod app;
 mod helpers;
+mod services;
 
 pub fn start() -> std::io::Result<()> {
     dotenv::dotenv().ok();
@@ -17,7 +17,7 @@ pub fn start() -> std::io::Result<()> {
 
     let mut listenfd = ListenFd::from_env();
 
-    let mut server = server::new(move || {
+    let mut server = HttpServer::new(move || {
         let access_key = std::env::var("ACCESS_KEY").expect("ACCESS_KEY must be set");
 
         let mut handlebars = Handlebars::new();
@@ -31,17 +31,17 @@ pub fn start() -> std::io::Result<()> {
 
         let recorder = Recorder::new(recorder_dir_path);
 
-        let app_state = AppState {
+        let data = AppData {
             access_key,
             recorder,
             handlebars,
         };
 
-        app::new(app_state)
+        App::new().data(data).configure(configure_app)
     });
 
     server = if let Some(listener) = listenfd.take_tcp_listener(0)? {
-        server.listen(listener)
+        server.listen(listener)?
     } else {
         let port = dotenv::var("PORT").unwrap_or_else(|_| "3000".to_owned());
         let addr = format!("127.0.0.1:{}", port);
@@ -49,7 +49,5 @@ pub fn start() -> std::io::Result<()> {
         server.bind(addr)?
     };
 
-    server.run();
-
-    Ok(())
+    server.run()
 }
