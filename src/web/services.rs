@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use actix_files::NamedFile;
 use actix_web::{error, http, web, HttpRequest, HttpResponse, Responder, Result as ActixResult};
 use handlebars::Handlebars;
-use mime_guess::guess_mime_type;
+use mime_guess;
 use serde::Deserialize;
 use serde_json::json;
 use url::{percent_encoding::percent_decode, Url};
@@ -142,7 +142,8 @@ fn post_download(data: Data, params: web::Form<Vec<(String, String)>>) -> impl R
 fn get_job(req: HttpRequest, data: Data) -> ActixResult<impl Responder> {
     fn sort_file_names(file_names: &mut Vec<String>) {
         fn key(file_name: &str) -> (u8, &str) {
-            let order = match guess_mime_type(file_name).type_() {
+            let mime = mime_guess::from_path(file_name).first_or_octet_stream();
+            let order = match mime.type_() {
                 mime::VIDEO => 0,
                 mime::AUDIO => 1,
                 mime::IMAGE => 2,
@@ -212,7 +213,7 @@ fn get_jobs(data: Data) -> ActixResult<impl Responder> {
     fn first_media_file_name(mut file_names: Vec<String>) -> Option<String> {
         file_names.sort();
         file_names.into_iter().find(|file_name| {
-            let mime = guess_mime_type(&file_name);
+            let mime = mime_guess::from_path(&file_name).first_or_octet_stream();
             [mime::AUDIO, mime::VIDEO].contains(&mime.type_())
         })
     }
