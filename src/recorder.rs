@@ -242,7 +242,7 @@ impl JobDir {
     }
 }
 
-/// Starts a thread that cleans up exitted child processes.
+/// Starts a thread that cleans up exited child processes.
 pub fn start_child_reaper() {
     let signals = signal_hook::iterator::Signals::new(&[signal_hook::SIGCHLD])
         .expect("SIGCHLD handler must be registered");
