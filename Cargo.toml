@@ -7,8 +7,9 @@ authors = ["Tomoki Aonuma <uasi@uasi.jp>"]
 license = "Apache-2.0"
 
 [dependencies]
-actix-files = "^0.1.1"
-actix-web = "^1.0.0"
+actix-files = "^0.2.1"
+actix-rt = "^1.0.0"
+actix-web = "^2.0.0"
 dotenv = "^0.15.0"
 mime_guess = "^2.0.1"
 handlebars = "^2.0.2"

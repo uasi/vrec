@@ -10,7 +10,7 @@ use crate::web::services::{configure_app, AppData};
 mod helpers;
 mod services;
 
-pub fn start() -> std::io::Result<()> {
+pub async fn start() -> std::io::Result<()> {
     dotenv::dotenv().ok();
 
     start_child_reaper();
@@ -49,5 +49,5 @@ pub fn start() -> std::io::Result<()> {
         server.bind(addr)?
     };
 
-    server.run()
+    server.run().await
 }
