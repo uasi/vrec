@@ -24,7 +24,7 @@ pub fn register_handlebars_helpers(handlebars: &mut Handlebars) {
 #[allow(clippy::redundant_closure)]
 mod handlebars_helpers {
     use handlebars::handlebars_helper;
-    use url::percent_encoding::{utf8_percent_encode, DEFAULT_ENCODE_SET};
+    use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 
     handlebars_helper!(datetime_from_job_id_helper: |s: str|
         ulid::Ulid::from_string(s)
@@ -33,6 +33,6 @@ mod handlebars_helpers {
     );
 
     handlebars_helper!(percent_encode_helper: |s: str|
-        utf8_percent_encode(s, DEFAULT_ENCODE_SET).to_string()
+        utf8_percent_encode(s, NON_ALPHANUMERIC).to_string()
     );
 }

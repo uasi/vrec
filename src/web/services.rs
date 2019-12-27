@@ -4,9 +4,10 @@ use actix_files::NamedFile;
 use actix_web::{error, http, web, HttpRequest, HttpResponse, Responder, Result as ActixResult};
 use handlebars::Handlebars;
 use mime_guess;
+use percent_encoding::percent_decode;
 use serde::Deserialize;
 use serde_json::json;
-use url::{percent_encoding::percent_decode, Url};
+use url::Url;
 
 use crate::disk_stat::{humanize_byte_size, DiskStat};
 use crate::recorder::{JobId, Recorder};
