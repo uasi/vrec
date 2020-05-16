@@ -13,12 +13,12 @@ use crate::disk_stat::{humanize_byte_size, DiskStat};
 use crate::recorder::{JobId, Recorder};
 use crate::web::helpers::render_html;
 
-type Data = web::Data<AppData>;
+type Data<'a> = web::Data<AppData<'a>>;
 
-pub struct AppData {
+pub struct AppData<'a> {
     pub access_key: String,
     pub recorder: Recorder,
-    pub handlebars: Handlebars,
+    pub handlebars: Handlebars<'a>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -55,7 +55,7 @@ pub fn configure_app(config: &mut web::ServiceConfig) {
 }
 
 async fn post_api_record(
-    data: Data,
+    data: Data<'_>,
     payload: web::Json<PostApiRecordPayload>,
 ) -> ActixResult<impl Responder> {
     fn find_youtube_link(link: linkify::Link) -> Option<String> {
@@ -92,15 +92,15 @@ async fn post_api_record(
     }
 }
 
-async fn get_index(data: Data) -> ActixResult<impl Responder> {
+async fn get_index(data: Data<'_>) -> ActixResult<impl Responder> {
     render_html(&data.handlebars, "index", &())
 }
 
-async fn get_download(data: Data) -> ActixResult<impl Responder> {
+async fn get_download(data: Data<'_>) -> ActixResult<impl Responder> {
     render_html(&data.handlebars, "download", &())
 }
 
-async fn post_download(data: Data, params: web::Form<Vec<(String, String)>>) -> impl Responder {
+async fn post_download(data: Data<'_>, params: web::Form<Vec<(String, String)>>) -> impl Responder {
     let has_access_key = params
         .iter()
         .any(|(name, value)| name == "access_key" && value == &data.access_key);
@@ -140,7 +140,7 @@ async fn post_download(data: Data, params: web::Form<Vec<(String, String)>>) -> 
     }
 }
 
-async fn get_job(req: HttpRequest, data: Data) -> ActixResult<impl Responder> {
+async fn get_job(req: HttpRequest, data: Data<'_>) -> ActixResult<impl Responder> {
     fn sort_file_names(file_names: &mut Vec<String>) {
         fn key(file_name: &str) -> (u8, &str) {
             let mime = mime_guess::from_path(file_name).first_or_octet_stream();
@@ -176,7 +176,7 @@ async fn get_job(req: HttpRequest, data: Data) -> ActixResult<impl Responder> {
     render_html(&data.handlebars, "job", &h)
 }
 
-async fn head_job_process(req: HttpRequest, data: Data) -> ActixResult<impl Responder> {
+async fn head_job_process(req: HttpRequest, data: Data<'_>) -> ActixResult<impl Responder> {
     let job_id: JobId = From::<String>::from(req.match_info().query("id").to_owned());
     let job = data.recorder.job(&job_id);
 
@@ -187,7 +187,7 @@ async fn head_job_process(req: HttpRequest, data: Data) -> ActixResult<impl Resp
     Ok(HttpResponse::NoContent().finish())
 }
 
-async fn get_job_file(req: HttpRequest, data: Data) -> ActixResult<impl Responder> {
+async fn get_job_file(req: HttpRequest, data: Data<'_>) -> ActixResult<impl Responder> {
     let job_id: JobId = From::<String>::from(req.match_info().query("id").to_owned());
     let job = data
         .recorder
@@ -210,7 +210,7 @@ async fn get_job_file(req: HttpRequest, data: Data) -> ActixResult<impl Responde
     Ok(f)
 }
 
-async fn get_jobs(data: Data) -> ActixResult<impl Responder> {
+async fn get_jobs(data: Data<'_>) -> ActixResult<impl Responder> {
     fn first_media_file_name(mut file_names: Vec<String>) -> Option<String> {
         file_names.sort();
         file_names.into_iter().find(|file_name| {
@@ -248,7 +248,7 @@ async fn get_jobs(data: Data) -> ActixResult<impl Responder> {
     render_html(&data.handlebars, "jobs", &h)
 }
 
-async fn delete_jobs(data: Data, payload: web::Json<DeleteJobsPayload>) -> ActixResult<impl Responder> {
+async fn delete_jobs(data: Data<'_>, payload: web::Json<DeleteJobsPayload>) -> ActixResult<impl Responder> {
     println!("delete_jobs {:?}", &payload);
 
     if payload.access_key != data.access_key {
