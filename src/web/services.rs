@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use actix_files::NamedFile;
 use actix_web::{error, http, web, HttpRequest, HttpResponse, Responder, Result as ActixResult};
 use handlebars::Handlebars;
-use mime_guess;
 use percent_encoding::percent_decode;
 use serde::Deserialize;
 use serde_json::json;
