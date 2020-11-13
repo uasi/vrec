@@ -83,7 +83,7 @@ async fn post_api_record(
                 "youtube-dl",
                 &["--write-all-thumbnails", "--write-info-json", link.as_str()],
             )
-            .and_then(|_| Ok(Ok(HttpResponse::Created().finish())))
+            .map(|_| Ok(HttpResponse::Created().finish()))
             .unwrap_or_else(|_| Ok(HttpResponse::Ok().finish()))
     } else {
         println!("post_api_record link not found");
