@@ -247,7 +247,10 @@ async fn get_jobs(data: Data<'_>) -> ActixResult<impl Responder> {
     render_html(&data.handlebars, "jobs", &h)
 }
 
-async fn delete_jobs(data: Data<'_>, payload: web::Json<DeleteJobsPayload>) -> ActixResult<impl Responder> {
+async fn delete_jobs(
+    data: Data<'_>,
+    payload: web::Json<DeleteJobsPayload>,
+) -> ActixResult<impl Responder> {
     println!("delete_jobs {:?}", &payload);
 
     if payload.access_key != data.access_key {
